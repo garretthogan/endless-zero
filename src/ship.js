@@ -21,7 +21,7 @@ export const SHIP_EXPLODE_DURATION = 1.5;
 
 let ship = null;
 let colliderDebug = null;
-let shipColliderVisible = true;
+let shipColliderVisible = false;
 let center = new THREE.Vector3(0, 0, 0);
 
 function createColliderOutline() {
