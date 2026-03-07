@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Endless Zero</title>
+  </head>
+  <body class="tui">
+    <div id="app"></div>
+    <div class="hud-display">
+      <div id="parsecs-display" class="score-display" aria-live="polite">Parsecs: 0</div>
+      <div id="score" class="score-display" aria-live="polite">Asteroids: 0</div>
+    </div>
+    <div id="game-over" class="overlay" style="display: none;">
+      <div class="overlay-panel">
+        <h1>Game Over</h1>
+        <p>Asteroid impact.</p>
+        <button id="restart-btn" type="button">Restart</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
