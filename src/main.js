@@ -10,12 +10,14 @@ import { createAsteroids, syncAsteroids, syncFragments, disposeAsteroids, isAste
 let animationId;
 let lastTime = 0;
 
+const baseUrl = import.meta.env.BASE_URL;
+
 let sfxVolume = 1;
 let soundtrackVolume = 0.5;
 
 const laserSounds = [
-  new Audio('/sfx/laser1.wav'),
-  new Audio('/sfx/laser2.wav'),
+  new Audio(baseUrl + 'sfx/laser1.wav'),
+  new Audio(baseUrl + 'sfx/laser2.wav'),
 ];
 let laserSoundIndex = 0;
 
@@ -29,9 +31,9 @@ function playLaserSound() {
 }
 
 const explosionSounds = [
-  new Audio('/sfx/space_explosion.wav'),
-  new Audio('/sfx/space_explosion2.wav'),
-  new Audio('/sfx/space_explosion3.wav'),
+  new Audio(baseUrl + 'sfx/space_explosion.wav'),
+  new Audio(baseUrl + 'sfx/space_explosion2.wav'),
+  new Audio(baseUrl + 'sfx/space_explosion3.wav'),
 ];
 
 function playShipExplosionSound() {
@@ -42,8 +44,8 @@ function playShipExplosionSound() {
 }
 
 const musicTracks = [
-  new Audio('/track1.wav'),
-  new Audio('/track2.wav'),
+  new Audio(baseUrl + 'track1.wav'),
+  new Audio(baseUrl + 'track2.wav'),
 ];
 let musicTrackIndex = 0;
 let musicStarted = false;
@@ -71,9 +73,9 @@ function ensureMusicStarted() {
 }
 
 const ASTEROID_EXPLOSION_URLS = [
-  '/sfx/asteroid_explosion.wav',
-  '/sfx/asteroid_explosion2.wav',
-  '/sfx/asteroid_explosion3.wav',
+  baseUrl + 'sfx/asteroid_explosion.wav',
+  baseUrl + 'sfx/asteroid_explosion2.wav',
+  baseUrl + 'sfx/asteroid_explosion3.wav',
 ];
 let audioCtx = null;
 let asteroidExplosionBuffers = null;

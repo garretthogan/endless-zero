@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getToonGradientMap } from './scene.js';
 
-const ASTEROIDS_GLB_PATH = '/asteroids.glb';
+const ASTEROIDS_GLB_PATH = import.meta.env.BASE_URL + 'asteroids.glb';
 const ASTEROID_TARGET_SIZE = 8;
 const DEBUG_SPHERE_RADIUS = 4;
 

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getToonGradientMap } from './scene.js';
 
-const SHIP_GLB_PATH = '/space_fighter_the_protector_of_the_galaxy.glb';
+const SHIP_GLB_PATH = import.meta.env.BASE_URL + 'space_fighter_the_protector_of_the_galaxy.glb';
 const SHIP_TARGET_SIZE = 6;
 export const SHIP_Z_OFFSET = 35;
 const SHIP_Y_OFFSET = -1.5;
