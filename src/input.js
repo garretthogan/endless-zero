@@ -6,10 +6,26 @@ let _boundPointerDown = null;
 let _boundPointerMove = null;
 let _boundPointerUp = null;
 
+let panelTouchActive = false;
+let touchStartClientX = 0;
+let touchStartClientY = 0;
+let panelTouchStartShipX = 0;
+let panelTouchStartShipY = 0;
+let panelTouchStartSet = false;
+let currentTouchClientX = 0;
+let currentTouchClientY = 0;
+
+/** Bottom 1/3 of viewport is the swipe panel (same as CSS .mobile-swipe-hint height 33.33vh). */
+const SWIPE_PANEL_TOP_RATIO = 2 / 3;
+
 const FIRE_KEYS = ['Space', 'Mouse0'];
 
 function isTouchDevice() {
   return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+function isInSwipePanel(clientY) {
+  return clientY >= window.innerHeight * SWIPE_PANEL_TOP_RATIO;
 }
 
 function clientToNDC(clientX, clientY, canvas) {
@@ -43,16 +59,32 @@ function onPointerMove(e, canvas) {
   canvasRect = canvas.getBoundingClientRect();
   if (e.pointerType === 'touch') {
     e.preventDefault();
-    const ndc = clientToNDC(e.clientX, e.clientY, canvas);
-    if (ndc) mouseNDC = ndc;
+    if (panelTouchActive) {
+      currentTouchClientX = e.clientX;
+      currentTouchClientY = e.clientY;
+    } else {
+      const ndc = clientToNDC(e.clientX, e.clientY, canvas);
+      if (ndc) mouseNDC = ndc;
+    }
   }
 }
 
 function onPointerDown(e, canvas) {
   if (e.button === 0) mouseButtonDown = true;
   if (e.pointerType === 'touch') {
-    const ndc = clientToNDC(e.clientX, e.clientY, canvas);
-    if (ndc) mouseNDC = ndc;
+    if (isInSwipePanel(e.clientY)) {
+      panelTouchActive = true;
+      panelTouchStartSet = false;
+      touchStartClientX = e.clientX;
+      touchStartClientY = e.clientY;
+      currentTouchClientX = e.clientX;
+      currentTouchClientY = e.clientY;
+      mouseNDC = null;
+    } else {
+      panelTouchActive = false;
+      const ndc = clientToNDC(e.clientX, e.clientY, canvas);
+      if (ndc) mouseNDC = ndc;
+    }
   }
   document.body.style.cursor = 'none';
 }
@@ -60,7 +92,12 @@ function onPointerDown(e, canvas) {
 function onPointerUp(e) {
   if (e.button === 0) mouseButtonDown = false;
   if (e.pointerType === 'touch') {
-    mouseNDC = null;
+    if (panelTouchActive) {
+      panelTouchActive = false;
+      panelTouchStartSet = false;
+    } else {
+      mouseNDC = null;
+    }
   }
 }
 
@@ -85,6 +122,43 @@ export function initInput(canvas) {
 
 export function getMouseNDC() {
   return mouseNDC;
+}
+
+/**
+ * Returns the world-space position the ship should move toward, or null to hold current position.
+ * On desktop/mouse: uses pointer position.
+ * On touch in main area: uses touch position.
+ * On touch in swipe panel: uses ship position at touch start + swipe delta in world space.
+ */
+export function getTargetWorldPosition(playArea, shipX, shipY) {
+  if (panelTouchActive) {
+    if (!panelTouchStartSet) {
+      panelTouchStartShipX = shipX;
+      panelTouchStartShipY = shipY;
+      panelTouchStartSet = true;
+    }
+    const pixelDeltaX = currentTouchClientX - touchStartClientX;
+    const pixelDeltaY = currentTouchClientY - touchStartClientY;
+    const worldW = playArea.right - playArea.left;
+    const worldH = playArea.top - playArea.bottom;
+    if (canvasRect.width <= 0 || canvasRect.height <= 0) {
+      return { x: panelTouchStartShipX, y: panelTouchStartShipY };
+    }
+    const worldDeltaX = (pixelDeltaX / canvasRect.width) * worldW;
+    const worldDeltaY = -(pixelDeltaY / canvasRect.height) * worldH;
+    return {
+      x: panelTouchStartShipX + worldDeltaX,
+      y: panelTouchStartShipY + worldDeltaY,
+    };
+  }
+  if (mouseNDC !== null) {
+    const { left, right, top, bottom } = playArea;
+    return {
+      x: left + (mouseNDC.x + 1) / 2 * (right - left),
+      y: bottom + (mouseNDC.y + 1) / 2 * (top - bottom),
+    };
+  }
+  return null;
 }
 
 export function getFireHeld() {

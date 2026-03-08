@@ -1,7 +1,7 @@
 import './style.css';
 import { createScene, getScene, getCamera, getRenderer, getPlayArea, getComposer, getOutlinePass, resize as sceneResize, dispose as sceneDispose } from './scene.js';
 import { createShip, updateShip, disposeShip, getBulletSpawnOffset, getShipGroup, SHIP_Z_OFFSET, setShipColliderVisible, updateShipColliderPosition } from './ship.js';
-import { initInput, getMouseNDC, getFireHeld, removeInputListeners } from './input.js';
+import { initInput, getTargetWorldPosition, getFireHeld, removeInputListeners } from './input.js';
 import { getState, tick as simulationTick, resetState, setAsteroidsReadyFn, getNextSpawnBatchSize } from './simulation.js';
 import { createStarfield, updateStarfield, disposeStarfield, setStarfieldResolution } from './starfield.js';
 import { createBullets, syncBullets, disposeBullets } from './bullets.js';
@@ -213,13 +213,12 @@ function gameLoop(time) {
 
   const playArea = getPlayArea();
   const cameraZ = camera ? camera.position.z : 50;
-  const mouseNDC = getMouseNDC();
+  const targetWorld = getTargetWorldPosition(playArea, state.ship.x, state.ship.y);
   let targetX = state.ship.x;
   let targetY = state.ship.y;
-  if (mouseNDC !== null) {
-    const { left, right, top, bottom } = playArea;
-    targetX = left + (mouseNDC.x + 1) / 2 * (right - left);
-    targetY = bottom + (mouseNDC.y + 1) / 2 * (top - bottom);
+  if (targetWorld !== null) {
+    targetX = targetWorld.x;
+    targetY = targetWorld.y;
   }
 
   const spawnPosition = getBulletSpawnOffset() ?? {
@@ -377,8 +376,13 @@ function startGame(renderer) {
   ensureMusicStarted();
 }
 
+function isFullscreenSupported() {
+  const el = document.documentElement;
+  return !!(el.requestFullscreen ?? el.webkitRequestFullscreen ?? el.mozRequestFullScreen ?? el.msRequestFullscreen);
+}
+
 function isFullscreen() {
-  return !!(document.fullscreenElement ?? document.webkitFullscreenElement);
+  return !!(document.fullscreenElement ?? document.webkitFullscreenElement ?? document.mozFullScreenElement ?? document.msFullscreenElement);
 }
 
 function updateFullscreenIcon() {
@@ -390,22 +394,49 @@ function updateFullscreenIcon() {
   exitEl.style.display = full ? 'block' : 'none';
 }
 
+function exitFullscreen() {
+  const doc = document;
+  (doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen)?.call(doc);
+}
+
+function enterFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (req) {
+    req.call(el).catch(() => {});
+  }
+}
+
 function toggleFullscreen() {
   if (isFullscreen()) {
-    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+    exitFullscreen();
   } else {
-    const el = document.documentElement;
-    (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
+    enterFullscreen();
   }
 }
 
 function initFullscreenButton() {
   const btn = document.getElementById('fullscreen-btn');
   if (!btn) return;
+
+  if (!isFullscreenSupported()) {
+    btn.style.display = 'none';
+    return;
+  }
+
   const onFullscreenChange = () => updateFullscreenIcon();
   document.addEventListener('fullscreenchange', onFullscreenChange);
   document.addEventListener('webkitfullscreenchange', onFullscreenChange);
-  btn.addEventListener('click', toggleFullscreen);
+  document.addEventListener('mozfullscreenchange', onFullscreenChange);
+  document.addEventListener('MSFullscreenChange', onFullscreenChange);
+
+  function handleFullscreenTap(e) {
+    e.preventDefault();
+    toggleFullscreen();
+  }
+
+  btn.addEventListener('pointerup', handleFullscreenTap);
+
   updateFullscreenIcon();
 }
 
@@ -414,6 +445,10 @@ function init() {
   if (!container) return;
 
   initFullscreenButton();
+
+  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+    document.body.classList.add('touch-device');
+  }
 
   const { scene, camera, renderer } = createScene(container);
   const shipLoadPromise = createShip(scene);

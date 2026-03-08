@@ -212,6 +212,69 @@ body.menu-visible .hud-display {
   height: 24px;
 }
 
+.mobile-swipe-hint {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 33.33vh;
+  background: rgba(0, 0, 0, 0.45);
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.mobile-swipe-hint-corner {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: var(--tui-fg);
+  border-style: solid;
+  border-width: 0;
+  opacity: 0.85;
+}
+
+.mobile-swipe-hint-corner-top-left {
+  left: 12px;
+  top: 12px;
+  border-left-width: 3px;
+  border-top-width: 3px;
+}
+
+.mobile-swipe-hint-corner-top-right {
+  right: 12px;
+  top: 12px;
+  border-right-width: 3px;
+  border-top-width: 3px;
+}
+
+.mobile-swipe-hint-corner-bottom-left {
+  left: 12px;
+  bottom: 12px;
+  border-left-width: 3px;
+  border-bottom-width: 3px;
+}
+
+.mobile-swipe-hint-corner-bottom-right {
+  right: 12px;
+  bottom: 12px;
+  border-right-width: 3px;
+  border-bottom-width: 3px;
+}
+
+body.touch-device .mobile-swipe-hint {
+  display: flex;
+}
+
+.mobile-swipe-hint-text {
+  font-family: var(--tui-font);
+  font-size: var(--tui-font-size-lg);
+  color: var(--tui-fg);
+  text-align: center;
+}
+
 .dev-panel {
   position: fixed;
   top: 12px;
