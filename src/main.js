@@ -363,9 +363,43 @@ function startGame(renderer) {
   ensureMusicStarted();
 }
 
+function isFullscreen() {
+  return !!(document.fullscreenElement ?? document.webkitFullscreenElement);
+}
+
+function updateFullscreenIcon() {
+  const expandEl = document.querySelector('.fullscreen-icon-expand');
+  const exitEl = document.querySelector('.fullscreen-icon-exit');
+  if (!expandEl || !exitEl) return;
+  const full = isFullscreen();
+  expandEl.style.display = full ? 'none' : 'block';
+  exitEl.style.display = full ? 'block' : 'none';
+}
+
+function toggleFullscreen() {
+  if (isFullscreen()) {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+  } else {
+    const el = document.documentElement;
+    (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
+  }
+}
+
+function initFullscreenButton() {
+  const btn = document.getElementById('fullscreen-btn');
+  if (!btn) return;
+  const onFullscreenChange = () => updateFullscreenIcon();
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+  btn.addEventListener('click', toggleFullscreen);
+  updateFullscreenIcon();
+}
+
 function init() {
   const container = document.getElementById('app');
   if (!container) return;
+
+  initFullscreenButton();
 
   const { scene, camera, renderer } = createScene(container);
   const shipLoadPromise = createShip(scene);
