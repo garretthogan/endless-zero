@@ -1,26 +1,16 @@
 @import url("../design-system/design-system.css");
 
-/* Full viewport + safe areas for native wrapper / iOS */
-@supports (height: 100dvh) {
-  html, body.tui {
-    min-height: 100dvh;
-    height: 100dvh;
-  }
-  body.tui #app {
-    height: 100dvh;
-  }
-}
-
 /* App overrides using TUI tokens */
 html {
   height: 100%;
+  height: -webkit-fill-available;
 }
 
 body.tui {
   min-width: 320px;
   min-height: 100vh;
-  min-height: 100dvh;
   height: 100%;
+  height: -webkit-fill-available;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -32,8 +22,8 @@ body.tui #app {
   inset: 0;
   width: 100vw;
   height: 100vh;
+  height: -webkit-fill-available;
   min-height: 100vh;
-  min-height: 100dvh;
   min-width: 100vw;
   margin: 0;
   padding: 0;
