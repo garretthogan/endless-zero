@@ -22,6 +22,10 @@ const laserSounds = [
 ];
 let laserSoundIndex = 0;
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function whenAudioReady() {
   const allAudio = [...laserSounds, ...explosionSounds, ...musicTracks];
   return Promise.all(
@@ -38,6 +42,16 @@ function whenAudioReady() {
     )
   );
 }
+
+/** On iOS/touch devices, canplaythrough often never fires until after user tap. Race with timeout so we don't hang. */
+const AUDIO_READY_TIMEOUT_MS = 5000;
+
+function whenAudioReadyOrTimeout() {
+  return Promise.race([whenAudioReady(), delay(AUDIO_READY_TIMEOUT_MS)]);
+}
+
+/** Safety: never block the UI longer than this, even if something fails to resolve. */
+const LOAD_SAFETY_TIMEOUT_MS = 15000;
 
 function playLaserSound() {
   ensureMusicStarted();
@@ -408,12 +422,14 @@ function init() {
   const { loadPromise: asteroidsLoadPromise } = createAsteroids(scene);
   setAsteroidsReadyFn(isAsteroidsReady);
 
-  Promise.all([
+  const loadPromises = Promise.all([
     shipLoadPromise,
     asteroidsLoadPromise,
-    whenAudioReady(),
+    whenAudioReadyOrTimeout(),
     loadAsteroidExplosionBuffers(),
-  ])
+  ]);
+
+  Promise.race([loadPromises, delay(LOAD_SAFETY_TIMEOUT_MS)])
     .then(() => {
       hideLoading();
       showMainMenu();
