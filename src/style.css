@@ -6,7 +6,7 @@
     min-height: 100dvh;
     height: 100dvh;
   }
-  #app {
+  body.tui #app {
     height: 100dvh;
   }
 }
@@ -27,20 +27,22 @@ body.tui {
   background: #0a0a0f;
 }
 
-#app {
+body.tui #app {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   min-height: 100vh;
   min-height: 100dvh;
+  min-width: 100vw;
   margin: 0;
   padding: 0;
   display: block;
+  flex: none;
   touch-action: none;
 }
 
-#app canvas {
+body.tui #app canvas {
   display: block;
   width: 100%;
   height: 100%;
