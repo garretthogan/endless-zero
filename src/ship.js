@@ -52,60 +52,65 @@ function disposeModel(obj) {
 }
 
 export function createShip(parentScene) {
-  const loader = new GLTFLoader();
-  loader.load(
-    SHIP_GLB_PATH,
-    (gltf) => {
-      ship = gltf.scene;
+  const loadPromise = new Promise((resolve, reject) => {
+    const loader = new GLTFLoader();
+    loader.load(
+      SHIP_GLB_PATH,
+      (gltf) => {
+        ship = gltf.scene;
 
-      ship.rotation.set(0, Math.PI, 0);
-      ship.updateMatrixWorld(true);
+        ship.rotation.set(0, Math.PI, 0);
+        ship.updateMatrixWorld(true);
 
-      const box = new THREE.Box3().setFromObject(ship);
-      const size = new THREE.Vector3();
-      box.getCenter(center);
-      box.getSize(size);
+        const box = new THREE.Box3().setFromObject(ship);
+        const size = new THREE.Vector3();
+        box.getCenter(center);
+        box.getSize(size);
 
-      const maxDim = Math.max(size.x, size.y, size.z, 0.001);
-      let scale = SHIP_TARGET_SIZE / maxDim;
-      scale = Math.max(0.01, Math.min(100, scale));
-      ship.scale.setScalar(scale);
+        const maxDim = Math.max(size.x, size.y, size.z, 0.001);
+        let scale = SHIP_TARGET_SIZE / maxDim;
+        scale = Math.max(0.01, Math.min(100, scale));
+        ship.scale.setScalar(scale);
 
-      ship.position.x = -center.x * scale;
-      ship.position.y = SHIP_Y_OFFSET - center.y * scale;
-      ship.position.z = SHIP_Z_OFFSET - center.z * scale;
+        ship.position.x = -center.x * scale;
+        ship.position.y = SHIP_Y_OFFSET - center.y * scale;
+        ship.position.z = SHIP_Z_OFFSET - center.z * scale;
 
-      colliderDebug = createColliderOutline();
-      colliderDebug.visible = shipColliderVisible;
-      colliderDebug.scale.setScalar(1);
-      parentScene.add(colliderDebug);
+        colliderDebug = createColliderOutline();
+        colliderDebug.visible = shipColliderVisible;
+        colliderDebug.scale.setScalar(1);
+        parentScene.add(colliderDebug);
 
-      const gradientMap = getToonGradientMap();
-      ship.traverse((child) => {
-        if (child.isMesh) {
-          child.frustumCulled = false;
-          if (child.material) {
-            const oldMat = Array.isArray(child.material) ? child.material[0] : child.material;
-            if (oldMat && gradientMap) {
-              const toon = new THREE.MeshToonMaterial({
-                color: oldMat.color?.clone?.() ?? 0x8888aa,
-                map: oldMat.map ?? null,
-                gradientMap,
-                side: THREE.DoubleSide,
-              });
-              child.material = toon;
-            } else if (oldMat) oldMat.side = THREE.DoubleSide;
+        const gradientMap = getToonGradientMap();
+        ship.traverse((child) => {
+          if (child.isMesh) {
+            child.frustumCulled = false;
+            if (child.material) {
+              const oldMat = Array.isArray(child.material) ? child.material[0] : child.material;
+              if (oldMat && gradientMap) {
+                const toon = new THREE.MeshToonMaterial({
+                  color: oldMat.color?.clone?.() ?? 0x8888aa,
+                  map: oldMat.map ?? null,
+                  gradientMap,
+                  side: THREE.DoubleSide,
+                });
+                child.material = toon;
+              } else if (oldMat) oldMat.side = THREE.DoubleSide;
+            }
           }
-        }
-      });
+        });
 
-      parentScene.add(ship);
-    },
-    undefined,
-    (err) => console.error('Ship GLB load error:', err)
-  );
-
-  return { shipMesh: ship };
+        parentScene.add(ship);
+        resolve();
+      },
+      undefined,
+      (err) => {
+        console.error('Ship GLB load error:', err);
+        reject(err);
+      }
+    );
+  });
+  return loadPromise;
 }
 
 export function updateShip(position) {

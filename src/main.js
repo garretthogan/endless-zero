@@ -9,6 +9,7 @@ import { createAsteroids, syncAsteroids, syncFragments, disposeAsteroids, isAste
 
 let animationId;
 let lastTime = 0;
+let gameStarted = false;
 
 const baseUrl = import.meta.env.BASE_URL;
 
@@ -20,6 +21,23 @@ const laserSounds = [
   new Audio(baseUrl + 'sfx/laser2.wav'),
 ];
 let laserSoundIndex = 0;
+
+function whenAudioReady() {
+  const allAudio = [...laserSounds, ...explosionSounds, ...musicTracks];
+  return Promise.all(
+    allAudio.map(
+      (audio) =>
+        new Promise((resolve, reject) => {
+          if (audio.readyState >= 3) {
+            resolve();
+            return;
+          }
+          audio.addEventListener('canplaythrough', () => resolve(), { once: true });
+          audio.addEventListener('error', (e) => reject(e), { once: true });
+        })
+    )
+  );
+}
 
 function playLaserSound() {
   ensureMusicStarted();
@@ -143,10 +161,19 @@ function gameLoop(time) {
   const dt = Math.min((time - lastTime) / 1000, 0.1);
   lastTime = time;
 
-  const state = getState();
   const scene = getScene();
   const camera = getCamera();
   const composer = getComposer();
+
+  if (!gameStarted) {
+    updateStarfield(dt, camera?.position.z);
+    if (composer) composer.render();
+    else getRenderer()?.render(scene, camera);
+    animationId = requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  const state = getState();
   const outlinePass = getOutlinePass();
 
   function collectOutlineMeshes(obj, out) {
@@ -227,17 +254,33 @@ function onResize() {
   }
 }
 
-function init() {
-  const container = document.getElementById('app');
-  if (!container) return;
+function hideLoading() {
+  const el = document.getElementById('loading');
+  if (el) el.classList.add('loaded');
+}
 
-  const { scene, camera, renderer } = createScene(container);
-  createShip(scene);
-  createStarfield(scene);
-  createBullets(scene);
-  createAsteroids(scene);
-  setAsteroidsReadyFn(isAsteroidsReady);
+function showMainMenu() {
+  const el = document.getElementById('main-menu');
+  if (el) {
+    el.style.display = 'flex';
+    el.classList.remove('hidden');
+  }
+  document.body.classList.add('menu-visible');
+}
+
+function hideMainMenu() {
+  const el = document.getElementById('main-menu');
+  if (el) {
+    el.classList.add('hidden');
+    el.style.display = 'none';
+  }
+  document.body.classList.remove('menu-visible');
+}
+
+function startGame(renderer) {
+  gameStarted = true;
   initInput(renderer.domElement);
+  hideMainMenu();
 
   const restartBtn = document.getElementById('restart-btn');
   if (restartBtn) {
@@ -317,10 +360,51 @@ function init() {
     });
   }
 
-  window.addEventListener('resize', onResize);
-  lastTime = performance.now();
-  animationId = requestAnimationFrame(gameLoop);
   ensureMusicStarted();
+}
+
+function init() {
+  const container = document.getElementById('app');
+  if (!container) return;
+
+  const { scene, camera, renderer } = createScene(container);
+  const shipLoadPromise = createShip(scene);
+  createStarfield(scene);
+  createBullets(scene);
+  const { loadPromise: asteroidsLoadPromise } = createAsteroids(scene);
+  setAsteroidsReadyFn(isAsteroidsReady);
+
+  Promise.all([
+    shipLoadPromise,
+    asteroidsLoadPromise,
+    whenAudioReady(),
+    loadAsteroidExplosionBuffers(),
+  ])
+    .then(() => {
+      hideLoading();
+      showMainMenu();
+
+      window.addEventListener('resize', onResize);
+      lastTime = performance.now();
+      animationId = requestAnimationFrame(gameLoop);
+
+      const startBtn = document.getElementById('start-btn');
+      if (startBtn) {
+        startBtn.addEventListener('click', () => startGame(renderer), { once: true });
+      }
+    })
+    .catch((err) => {
+      console.error('Load error:', err);
+      hideLoading();
+      showMainMenu();
+      window.addEventListener('resize', onResize);
+      lastTime = performance.now();
+      animationId = requestAnimationFrame(gameLoop);
+      const startBtn = document.getElementById('start-btn');
+      if (startBtn) {
+        startBtn.addEventListener('click', () => startGame(renderer), { once: true });
+      }
+    });
 }
 
 function dispose() {

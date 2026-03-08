@@ -7,6 +7,17 @@
     <title>Endless Zero</title>
   </head>
   <body class="tui">
+    <div id="loading" class="loading-overlay" aria-live="polite">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <p class="loading-text">Loading...</p>
+    </div>
+    <div id="main-menu" class="main-menu-overlay" aria-label="Main menu" style="display: none;">
+      <div class="main-menu-panel">
+        <h1 class="main-menu-title">Endless Zero</h1>
+        <p class="main-menu-tagline">Dodge the asteroids. Survive the void.</p>
+        <button id="start-btn" type="button" class="main-menu-btn">Start</button>
+      </div>
+    </div>
     <div id="app"></div>
     <div class="hud-display">
       <div id="parsecs-display" class="score-display" aria-live="polite">Parsecs: 0</div>

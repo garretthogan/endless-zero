@@ -110,29 +110,35 @@ export function createAsteroids(parentScene) {
     mesh.visible = false;
     fragmentContainer.add(mesh);
   }
-  const loader = new GLTFLoader();
-  loader.load(
-    ASTEROIDS_GLB_PATH,
-    (gltf) => {
-      const scene = gltf.scene;
-      const meshes = [];
-      collectMeshes(scene, meshes);
-      if (meshes.length >= 7) {
-        asteroidTemplates = meshes.slice(0, 7);
-      } else if (meshes.length > 0) {
-        asteroidTemplates = meshes.slice(0, 7);
+  const loadPromise = new Promise((resolve, reject) => {
+    const loader = new GLTFLoader();
+    loader.load(
+      ASTEROIDS_GLB_PATH,
+      (gltf) => {
+        const scene = gltf.scene;
+        const meshes = [];
+        collectMeshes(scene, meshes);
+        if (meshes.length >= 7) {
+          asteroidTemplates = meshes.slice(0, 7);
+        } else if (meshes.length > 0) {
+          asteroidTemplates = meshes.slice(0, 7);
+        }
+        if (asteroidTemplates.length === 0 && scene.children.length >= 7) {
+          asteroidTemplates = scene.children.slice(0, 7);
+        } else if (asteroidTemplates.length === 0 && scene.children.length > 0) {
+          asteroidTemplates = scene.children.slice();
+        }
+        asteroidTemplates.forEach((t) => applyToonToObject(t));
+        resolve();
+      },
+      undefined,
+      (err) => {
+        console.error('Asteroids GLB load error:', err);
+        reject(err);
       }
-      if (asteroidTemplates.length === 0 && scene.children.length >= 7) {
-        asteroidTemplates = scene.children.slice(0, 7);
-      } else       if (asteroidTemplates.length === 0 && scene.children.length > 0) {
-        asteroidTemplates = scene.children.slice();
-      }
-      asteroidTemplates.forEach((t) => applyToonToObject(t));
-    },
-    undefined,
-    (err) => console.error('Asteroids GLB load error:', err)
-  );
-  return container;
+    );
+  });
+  return { container, loadPromise };
 }
 
 export function syncAsteroids(asteroidList) {
