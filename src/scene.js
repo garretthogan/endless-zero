@@ -47,22 +47,32 @@ function updatePlayAreaFromCamera() {
   halfWidth = halfHeight * camera.aspect;
 }
 
+function isMobileOrTouch() {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
 export function createScene(container) {
   scene = new THREE.Scene();
 
-  const aspect = container.clientWidth / container.clientHeight;
+  let w = Math.max(1, container.clientWidth || window.innerWidth);
+  let h = Math.max(1, container.clientHeight || window.innerHeight);
+  const aspect = w / h;
   camera = new THREE.PerspectiveCamera(FOV_DEG, aspect, 0.1, 6000);
   camera.position.set(0, 0, 50);
   camera.lookAt(0, 0, 0);
   updatePlayAreaFromCamera();
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  const w = container.clientWidth;
-  const h = container.clientHeight;
+  const useComposer = !isMobileOrTouch();
+  renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: false,
+    powerPreference: 'high-performance',
+  });
   renderer.setSize(w, h);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.5;
+  renderer.setClearColor(0x000011, 1);
   container.appendChild(renderer.domElement);
 
   toonGradientMap = createToonGradientMap();
@@ -73,16 +83,20 @@ export function createScene(container) {
   directional.position.set(5, 8, 10);
   scene.add(directional);
 
-  composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
-  const resolution = new THREE.Vector2(w, h);
-  outlinePass = new OutlinePass(resolution, scene, camera, []);
-  outlinePass.edgeThickness = 1.5;
-  outlinePass.edgeStrength = 2.5;
-  outlinePass.visibleEdgeColor.set(0x000000);
-  outlinePass.hiddenEdgeColor.set(0x000000);
-  composer.addPass(outlinePass);
-  composer.addPass(new OutputPass());
+  composer = null;
+  outlinePass = null;
+  if (useComposer) {
+    composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const resolution = new THREE.Vector2(w, h);
+    outlinePass = new OutlinePass(resolution, scene, camera, []);
+    outlinePass.edgeThickness = 1.5;
+    outlinePass.edgeStrength = 2.5;
+    outlinePass.visibleEdgeColor.set(0x000000);
+    outlinePass.hiddenEdgeColor.set(0x000000);
+    composer.addPass(outlinePass);
+    composer.addPass(new OutputPass());
+  }
 
   return { scene, camera, renderer };
 }
@@ -117,8 +131,8 @@ export function getPlayArea() {
 
 export function resize(container) {
   if (!renderer || !camera || !container) return;
-  const w = container.clientWidth;
-  const h = container.clientHeight;
+  const w = Math.max(1, container.clientWidth || window.innerWidth);
+  const h = Math.max(1, container.clientHeight || window.innerHeight);
   renderer.setSize(w, h);
   if (composer) {
     composer.setSize(w, h);

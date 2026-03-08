@@ -104,6 +104,34 @@ function ensureMusicStarted() {
   track.play().then(() => { musicStarted = true; }).catch(() => {});
 }
 
+/**
+ * On iOS/mobile, HTML Audio and Web Audio must be "unlocked" during a user gesture.
+ * Call this when the user taps Start so laser, explosion, and asteroid SFX can play later.
+ */
+function unlockSfxForMobile() {
+  getAudioContext();
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+  const allSfx = [...laserSounds, ...explosionSounds];
+  allSfx.forEach((audio) => {
+    const prevVolume = audio.volume;
+    audio.volume = 0;
+    const p = audio.play();
+    if (p && typeof p.then === 'function') {
+      p.then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = prevVolume;
+      }).catch(() => {
+        audio.volume = prevVolume;
+      });
+    } else {
+      audio.volume = prevVolume;
+    }
+  });
+}
+
 const ASTEROID_EXPLOSION_URLS = [
   baseUrl + 'sfx/asteroid_explosion.wav',
   baseUrl + 'sfx/asteroid_explosion2.wav',
@@ -292,6 +320,9 @@ function hideMainMenu() {
 
 function startGame(renderer) {
   gameStarted = true;
+  onResize();
+  requestAnimationFrame(() => onResize());
+  unlockSfxForMobile();
   initInput(renderer.domElement);
   hideMainMenu();
 
@@ -470,6 +501,9 @@ function init() {
       showMainMenu();
 
       window.addEventListener('resize', onResize);
+      onResize();
+      requestAnimationFrame(() => onResize());
+
       lastTime = performance.now();
       animationId = requestAnimationFrame(gameLoop);
 
@@ -483,6 +517,8 @@ function init() {
       hideLoading();
       showMainMenu();
       window.addEventListener('resize', onResize);
+      onResize();
+      requestAnimationFrame(() => onResize());
       lastTime = performance.now();
       animationId = requestAnimationFrame(gameLoop);
       const startBtn = document.getElementById('start-btn');
