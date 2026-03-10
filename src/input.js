@@ -15,17 +15,17 @@ let panelTouchStartSet = false;
 let currentTouchClientX = 0;
 let currentTouchClientY = 0;
 
-/** Bottom 1/3 of viewport is the swipe panel (same as CSS .mobile-swipe-hint height 33.33vh). */
-const SWIPE_PANEL_TOP_RATIO = 2 / 3;
-
 const FIRE_KEYS = ['Space', 'Mouse0'];
 
 function isTouchDevice() {
   return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 }
 
-function isInSwipePanel(clientY) {
-  return clientY >= window.innerHeight * SWIPE_PANEL_TOP_RATIO;
+function isInsideSwipeContainer(clientX, clientY) {
+  const el = document.querySelector('.mobile-swipe-hint');
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
 }
 
 function clientToNDC(clientX, clientY, canvas) {
@@ -72,7 +72,7 @@ function onPointerMove(e, canvas) {
 function onPointerDown(e, canvas) {
   if (e.button === 0) mouseButtonDown = true;
   if (e.pointerType === 'touch') {
-    if (isInSwipePanel(e.clientY)) {
+    if (isInsideSwipeContainer(e.clientX, e.clientY)) {
       panelTouchActive = true;
       panelTouchStartSet = false;
       touchStartClientX = e.clientX;

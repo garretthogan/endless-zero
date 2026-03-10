@@ -16,6 +16,8 @@ let gameStarted = false;
 let gamePaused = false;
 let escapeKeyHandler = null;
 
+let mobileFireRequested = false;
+
 const baseUrl = import.meta.env.BASE_URL;
 
 let sfxVolume = 0.55;
@@ -304,7 +306,12 @@ function gameLoop(time) {
     y: state.ship.y,
     z: SHIP_Z_OFFSET,
   };
-  simulationTick(dt, { x: targetX, y: targetY }, getFireHeld(), playArea, spawnPosition, cameraZ, playLaserSound, playShipExplosionSound, playAsteroidExplosionSound, playHoopSound, playInvincibilitySound, playTwinFireSound);
+  const isTouch = document.body.classList.contains('touch-device');
+  const fire = isTouch
+    ? mobileFireRequested && state.bullets.length < 2
+    : getFireHeld();
+  if (isTouch) mobileFireRequested = false;
+  simulationTick(dt, { x: targetX, y: targetY }, fire, playArea, spawnPosition, cameraZ, playLaserSound, playShipExplosionSound, playAsteroidExplosionSound, playHoopSound, playInvincibilitySound, playTwinFireSound);
   const newState = getState();
 
   const shipGroup = getShipGroup();
@@ -320,6 +327,15 @@ function gameLoop(time) {
   syncPowerUps(newState.powerUps);
   syncFireworkParticles(newState.fireworkParticles);
   syncFragments(newState.fragments);
+
+  const maxBullets = 2;
+  const bulletFillBar = document.getElementById('bullet-fill-bar');
+  if (bulletFillBar) {
+    const bulletCount = newState.bullets.length;
+    const fill = Math.max(0, Math.min(1, (maxBullets - bulletCount) / maxBullets));
+    const circumference = 2 * Math.PI * 24;
+    bulletFillBar.style.strokeDashoffset = String((1 - fill) * circumference);
+  }
 
   const powerupTimerEl = document.getElementById('powerup-timer');
   if (powerupTimerEl) {
@@ -394,10 +410,22 @@ function startGame(renderer) {
   initInput(renderer.domElement);
   hideMainMenu();
 
+  const bulletFillEl = document.getElementById('bullet-fill');
+  if (bulletFillEl && document.body.classList.contains('touch-device')) {
+    bulletFillEl.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      if (getState().gameOver || gamePaused) return;
+      e.preventDefault();
+      e.stopPropagation();
+      mobileFireRequested = true;
+    }, { passive: false });
+  }
+
   const restartBtn = document.getElementById('restart-btn');
   if (restartBtn) {
     restartBtn.addEventListener('click', () => {
       resetState();
+      mobileFireRequested = false;
       showGameOver(false);
       document.body.style.cursor = 'none';
     });
