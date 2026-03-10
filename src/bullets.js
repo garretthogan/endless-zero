@@ -4,11 +4,11 @@ import { getToonGradientMap } from './scene.js';
 const POOL_SIZE = 64;
 
 export const BULLET_RADIUS = 0.52;
-export const BULLET_SPEED = 400;
-export const BULLET_MAX_DIST = 5000;
+export const BULLET_SPEED = 500;
+export const BULLET_MAX_DIST = 2000;
 export const FIRE_INTERVAL = 0.25;
 
-const BURST_LENGTH = BULLET_RADIUS * 6;
+const BURST_LENGTH = BULLET_RADIUS * 12;
 
 let container;
 let pool = [];

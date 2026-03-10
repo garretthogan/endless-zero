@@ -31,13 +31,20 @@
     <div id="app"></div>
     <div class="hud-display">
       <div id="parsecs-display" class="score-display" aria-live="polite">Parsecs: 0</div>
-      <div id="score" class="score-display" aria-live="polite">Asteroids: 0</div>
+      <div id="score" class="score-display" aria-live="polite">Score: 0</div>
+    </div>
+    <div id="powerup-timer" class="powerup-timer" aria-live="polite" style="display: none;"></div>
+    <div id="pause-menu" class="overlay" style="display: none;" aria-label="Paused">
+      <div class="overlay-panel">
+        <h1>Paused</h1>
+        <button id="resume-btn" type="button" class="overlay-btn">Resume</button>
+      </div>
     </div>
     <div id="game-over" class="overlay" style="display: none;">
       <div class="overlay-panel">
         <h1>Game Over</h1>
         <p>Asteroid impact.</p>
-        <button id="restart-btn" type="button">Restart</button>
+        <button id="restart-btn" type="button" class="overlay-btn">Restart</button>
       </div>
     </div>
     <div class="mobile-swipe-hint" aria-hidden="true">

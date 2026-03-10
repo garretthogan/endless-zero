@@ -7,7 +7,7 @@ const ASTEROID_TARGET_SIZE = 8;
 const DEBUG_SPHERE_RADIUS = 4;
 
 export const ASTEROID_SPEED = 220;
-export const ASTEROID_SPAWN_Z = -320;
+export const ASTEROID_SPAWN_Z = -1020;
 export const ASTEROID_RADIUS_MIN = 1.5;
 export const ASTEROID_RADIUS_MAX = 6.5;
 export const ASTEROID_SPAWN_INTERVAL = 5.5;
@@ -15,11 +15,18 @@ export const ASTEROID_SPAWN_INTERVAL_MIN = 0.25;
 export const ASTEROID_MAX = 12;
 export const ASTEROID_MAX_CAP = 28;
 export const ASTEROID_MAX_GROWTH_K = 4;
-export const ASTEROID_SPAWN_BATCH_LOG_K = 1.5;
+export const ASTEROID_SPAWN_BATCH_LOG_K = 0.5;
 export const NUM_ASTEROID_TEMPLATES = 7;
-export const POINTS_PER_ASTEROID = 1;
-export const ASTEROID_SPAWN_RADIUS = 7;
-export const ASTEROID_BATCH_Z_SPACING = 100;
+/** Size tiers: 0 = large (5 pts), 1 = medium (10 pts), 2 = small (15 pts). */
+export const ASTEROID_SIZE_TIERS = [
+  { radiusMin: 5.5, radiusMax: 7.5, points: 5, templateIndices: [0, 1] },
+  { radiusMin: 3.5, radiusMax: 5, points: 10, templateIndices: [2, 3, 4] },
+  { radiusMin: 2.5, radiusMax: 3.5, points: 15, templateIndices: [5, 6] },
+];
+export const ASTEROID_SPAWN_RADIUS = 3;
+export const ASTEROID_BATCH_Z_SPACING = 500;
+export const ASTEROID_BATCH_X_SPACING = 10;
+export const ASTEROID_BATCH_Y_SPACING = 2;
 
 const FRAGMENT_POOL_SIZE = 32;
 const FRAGMENT_SIZE = 0.8;

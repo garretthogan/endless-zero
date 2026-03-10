@@ -71,7 +71,7 @@ export function createScene(container) {
   renderer.setSize(w, h);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.5;
+  renderer.toneMappingExposure = 0.85;
   renderer.setClearColor(0x000011, 1);
   container.appendChild(renderer.domElement);
 

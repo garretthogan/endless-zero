@@ -21,6 +21,7 @@ export const SHIP_EXPLODE_DURATION = 1.5;
 
 let ship = null;
 let colliderDebug = null;
+let shieldSphere = null;
 let shipColliderVisible = false;
 let center = new THREE.Vector3(0, 0, 0);
 
@@ -34,6 +35,20 @@ function createColliderOutline() {
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 1000;
+  return mesh;
+}
+
+function createShieldSphere() {
+  const geometry = new THREE.SphereGeometry(SHIP_HIT_RADIUS, 16, 16);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xff69b4,
+    wireframe: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.renderOrder = 1001;
+  mesh.visible = false;
   return mesh;
 }
 
@@ -80,6 +95,9 @@ export function createShip(parentScene) {
         colliderDebug.visible = shipColliderVisible;
         colliderDebug.scale.setScalar(1);
         parentScene.add(colliderDebug);
+
+        shieldSphere = createShieldSphere();
+        parentScene.add(shieldSphere);
 
         const gradientMap = getToonGradientMap();
         ship.traverse((child) => {
@@ -132,12 +150,17 @@ export function setShipColliderVisible(visible) {
   if (colliderDebug) colliderDebug.visible = visible;
 }
 
+export function setShieldVisible(visible) {
+  if (shieldSphere) shieldSphere.visible = visible;
+}
+
 /** Update collider debug mesh position/scale to match ship (call each frame). */
 export function updateShipColliderPosition() {
-  if (!colliderDebug || !ship) return;
+  if (!ship) return;
   const pos = getShipColliderCenter();
   if (pos) {
-    colliderDebug.position.set(pos.x, pos.y, pos.z);
+    if (colliderDebug) colliderDebug.position.set(pos.x, pos.y, pos.z);
+    if (shieldSphere) shieldSphere.position.set(pos.x, pos.y, pos.z);
   }
 }
 
@@ -188,6 +211,14 @@ export function disposeShip() {
     colliderDebug.geometry?.dispose();
     colliderDebug.material?.dispose();
     colliderDebug = null;
+  }
+  if (shieldSphere && shieldSphere.parent) {
+    shieldSphere.parent.remove(shieldSphere);
+  }
+  if (shieldSphere) {
+    shieldSphere.geometry?.dispose();
+    shieldSphere.material?.dispose();
+    shieldSphere = null;
   }
   disposeModel(ship);
   ship = null;

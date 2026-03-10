@@ -1,20 +1,25 @@
 import './style.css';
 import { createScene, getScene, getCamera, getRenderer, getPlayArea, getComposer, getOutlinePass, resize as sceneResize, dispose as sceneDispose } from './scene.js';
-import { createShip, updateShip, disposeShip, getBulletSpawnOffset, getShipGroup, SHIP_Z_OFFSET, setShipColliderVisible, updateShipColliderPosition } from './ship.js';
+import { createShip, updateShip, disposeShip, getBulletSpawnOffset, getShipGroup, SHIP_Z_OFFSET, setShipColliderVisible, updateShipColliderPosition, setShieldVisible } from './ship.js';
 import { initInput, getTargetWorldPosition, getFireHeld, removeInputListeners } from './input.js';
 import { getState, tick as simulationTick, resetState, setAsteroidsReadyFn, getNextSpawnBatchSize } from './simulation.js';
 import { createStarfield, updateStarfield, disposeStarfield, setStarfieldResolution } from './starfield.js';
 import { createBullets, syncBullets, disposeBullets } from './bullets.js';
 import { createAsteroids, syncAsteroids, syncFragments, disposeAsteroids, isAsteroidsReady, setAsteroidCollidersVisible } from './asteroids.js';
+import { createHoops, syncHoops, disposeHoops } from './hoops.js';
+import { createFireworks, syncFireworkParticles, disposeFireworks } from './fireworks.js';
+import { createPowerUps, syncPowerUps, disposePowerUps } from './powerups.js';
 
 let animationId;
 let lastTime = 0;
 let gameStarted = false;
+let gamePaused = false;
+let escapeKeyHandler = null;
 
 const baseUrl = import.meta.env.BASE_URL;
 
-let sfxVolume = 1;
-let soundtrackVolume = 0.5;
+let sfxVolume = 0.55;
+let soundtrackVolume = 0.25;
 
 const laserSounds = [
   new Audio(baseUrl + 'sfx/laser1.wav'),
@@ -27,7 +32,7 @@ function delay(ms) {
 }
 
 function whenAudioReady() {
-  const allAudio = [...laserSounds, ...explosionSounds, ...musicTracks];
+  const allAudio = [...laserSounds, ...explosionSounds, hoopSound, invincibilitySound, twinFireSound, ...musicTracks];
   return Promise.all(
     allAudio.map(
       (audio) =>
@@ -67,6 +72,31 @@ const explosionSounds = [
   new Audio(baseUrl + 'sfx/space_explosion2.wav'),
   new Audio(baseUrl + 'sfx/space_explosion3.wav'),
 ];
+
+const hoopSound = new Audio(baseUrl + 'sfx/hoop.wav');
+const invincibilitySound = new Audio(baseUrl + 'sfx/invincibility.wav');
+const twinFireSound = new Audio(baseUrl + 'sfx/twinfire.wav');
+
+function playHoopSound() {
+  ensureMusicStarted();
+  hoopSound.volume = sfxVolume;
+  hoopSound.currentTime = 0;
+  hoopSound.play().catch(() => {});
+}
+
+function playInvincibilitySound() {
+  ensureMusicStarted();
+  invincibilitySound.volume = sfxVolume;
+  invincibilitySound.currentTime = 0;
+  invincibilitySound.play().catch(() => {});
+}
+
+function playTwinFireSound() {
+  ensureMusicStarted();
+  twinFireSound.volume = sfxVolume;
+  twinFireSound.currentTime = 0;
+  twinFireSound.play().catch(() => {});
+}
 
 function playShipExplosionSound() {
   const s = explosionSounds[Math.floor(Math.random() * explosionSounds.length)];
@@ -113,7 +143,7 @@ function unlockSfxForMobile() {
   if (audioCtx && audioCtx.state === 'suspended') {
     audioCtx.resume().catch(() => {});
   }
-  const allSfx = [...laserSounds, ...explosionSounds];
+  const allSfx = [...laserSounds, ...explosionSounds, hoopSound, invincibilitySound, twinFireSound];
   allSfx.forEach((audio) => {
     const prevVolume = audio.volume;
     audio.volume = 0;
@@ -199,6 +229,19 @@ function showGameOver(show) {
   if (el) el.style.display = show ? 'flex' : 'none';
 }
 
+function showPauseMenu(show) {
+  const el = document.getElementById('pause-menu');
+  if (el) el.style.display = show ? 'flex' : 'none';
+  if (show) document.body.style.cursor = '';
+}
+
+function setPaused(paused) {
+  if (gamePaused === paused) return;
+  gamePaused = paused;
+  showPauseMenu(paused);
+  if (!paused) document.body.style.cursor = 'none';
+}
+
 function gameLoop(time) {
   const dt = Math.min((time - lastTime) / 1000, 0.1);
   lastTime = time;
@@ -209,6 +252,13 @@ function gameLoop(time) {
 
   if (!gameStarted) {
     updateStarfield(dt, camera?.position.z);
+    if (composer) composer.render();
+    else getRenderer()?.render(scene, camera);
+    animationId = requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (gamePaused) {
     if (composer) composer.render();
     else getRenderer()?.render(scene, camera);
     animationId = requestAnimationFrame(gameLoop);
@@ -254,7 +304,7 @@ function gameLoop(time) {
     y: state.ship.y,
     z: SHIP_Z_OFFSET,
   };
-  simulationTick(dt, { x: targetX, y: targetY }, getFireHeld(), playArea, spawnPosition, cameraZ, playLaserSound, playShipExplosionSound, playAsteroidExplosionSound);
+  simulationTick(dt, { x: targetX, y: targetY }, getFireHeld(), playArea, spawnPosition, cameraZ, playLaserSound, playShipExplosionSound, playAsteroidExplosionSound, playHoopSound, playInvincibilitySound, playTwinFireSound);
   const newState = getState();
 
   const shipGroup = getShipGroup();
@@ -262,13 +312,31 @@ function gameLoop(time) {
 
   updateShip(newState.ship);
   updateShipColliderPosition();
+  setShieldVisible(newState.shieldTimer > 0 && !newState.gameOver && !newState.shipExploding);
   updateStarfield(dt, camera?.position.z);
   syncBullets(newState.bullets);
   syncAsteroids(newState.asteroids);
+  syncHoops(newState.hoops);
+  syncPowerUps(newState.powerUps);
+  syncFireworkParticles(newState.fireworkParticles);
   syncFragments(newState.fragments);
 
+  const powerupTimerEl = document.getElementById('powerup-timer');
+  if (powerupTimerEl) {
+    const active = [];
+    if (newState.shieldTimer > 0) active.push(`Shield: ${newState.shieldTimer.toFixed(1)}s`);
+    if (newState.homingTimer > 0) active.push(`Homing: ${newState.homingTimer.toFixed(1)}s`);
+    if (active.length > 0) {
+      powerupTimerEl.textContent = active.join('  ·  ');
+      powerupTimerEl.style.display = 'block';
+    } else {
+      powerupTimerEl.textContent = '';
+      powerupTimerEl.style.display = 'none';
+    }
+  }
+
   const scoreEl = document.getElementById('score');
-  if (scoreEl) scoreEl.textContent = `Asteroids: ${newState.score}`;
+  if (scoreEl) scoreEl.textContent = `Score: ${newState.score}`;
   const parsecsEl = document.getElementById('parsecs-display');
   if (parsecsEl) parsecsEl.textContent = `Parsecs: ${Math.floor(newState.totalParsecs)}`;
 
@@ -335,6 +403,19 @@ function startGame(renderer) {
     });
   }
 
+  const resumeBtn = document.getElementById('resume-btn');
+  if (resumeBtn) {
+    resumeBtn.addEventListener('click', () => setPaused(false));
+  }
+
+  escapeKeyHandler = (e) => {
+    if (e.code !== 'Escape') return;
+    if (getState().gameOver) return;
+    e.preventDefault();
+    setPaused(!gamePaused);
+  };
+  window.addEventListener('keydown', escapeKeyHandler);
+
   if (import.meta.env.DEV) {
     setShipColliderVisible(false);
     setAsteroidCollidersVisible(false);
@@ -352,18 +433,18 @@ function startGame(renderer) {
       </label>
       <div class="dev-panel-row dev-panel-row-exposure">
         <label for="dev-exposure" class="dev-panel-label">Exposure</label>
-        <input type="range" id="dev-exposure" min="0.25" max="2" step="0.05" value="0.5" />
-        <span id="dev-exposure-value" class="dev-panel-value">0.50</span>
+        <input type="range" id="dev-exposure" min="0.25" max="2" step="0.05" value="0.85" />
+        <span id="dev-exposure-value" class="dev-panel-value">0.85</span>
       </div>
       <div class="dev-panel-row dev-panel-row-exposure">
         <label for="dev-sfx-volume" class="dev-panel-label">SFX volume</label>
-        <input type="range" id="dev-sfx-volume" min="0" max="1" step="0.05" value="1" />
-        <span id="dev-sfx-volume-value" class="dev-panel-value">1.00</span>
+        <input type="range" id="dev-sfx-volume" min="0" max="1" step="0.05" value="0.55" />
+        <span id="dev-sfx-volume-value" class="dev-panel-value">0.55</span>
       </div>
       <div class="dev-panel-row dev-panel-row-exposure">
         <label for="dev-soundtrack-volume" class="dev-panel-label">Soundtrack</label>
-        <input type="range" id="dev-soundtrack-volume" min="0" max="1" step="0.05" value="0.5" />
-        <span id="dev-soundtrack-volume-value" class="dev-panel-value">0.50</span>
+        <input type="range" id="dev-soundtrack-volume" min="0" max="1" step="0.05" value="0.25" />
+        <span id="dev-soundtrack-volume-value" class="dev-panel-value">0.25</span>
       </div>
       <div class="dev-panel-row dev-panel-row-exposure">
         <span class="dev-panel-label">Spawn interval</span>
@@ -394,6 +475,9 @@ function startGame(renderer) {
       sfxVolumeValue.textContent = sfxVolume.toFixed(2);
       laserSounds.forEach((s) => { s.volume = sfxVolume; });
       explosionSounds.forEach((s) => { s.volume = sfxVolume; });
+      hoopSound.volume = sfxVolume;
+      invincibilitySound.volume = sfxVolume;
+      twinFireSound.volume = sfxVolume;
     });
     const soundtrackVolumeInput = document.getElementById('dev-soundtrack-volume');
     const soundtrackVolumeValue = document.getElementById('dev-soundtrack-volume-value');
@@ -486,6 +570,9 @@ function init() {
   createStarfield(scene);
   createBullets(scene);
   const { loadPromise: asteroidsLoadPromise } = createAsteroids(scene);
+  createHoops(scene);
+  createPowerUps(scene);
+  createFireworks(scene);
   setAsteroidsReadyFn(isAsteroidsReady);
 
   const loadPromises = Promise.all([
@@ -529,6 +616,10 @@ function init() {
 }
 
 function dispose() {
+  if (escapeKeyHandler) {
+    window.removeEventListener('keydown', escapeKeyHandler);
+    escapeKeyHandler = null;
+  }
   musicTracks.forEach((t) => { t.pause(); t.currentTime = 0; });
   if (animationId != null) cancelAnimationFrame(animationId);
   window.removeEventListener('resize', onResize);
@@ -537,6 +628,9 @@ function dispose() {
   disposeStarfield();
   disposeBullets();
   disposeAsteroids();
+  disposeHoops();
+  disposePowerUps();
+  disposeFireworks();
   sceneDispose();
 }
 
