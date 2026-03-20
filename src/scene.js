@@ -6,6 +6,8 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 const DEFAULT_SIZE = 20;
 const FOV_DEG = 50;
+const BASE_CAMERA_Z = 50;
+const MOBILE_PORTRAIT_MAX_Z_SCALE = 1.45;
 let scene;
 let camera;
 let renderer;
@@ -51,6 +53,16 @@ function isMobileOrTouch() {
   return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 }
 
+function getAspectScaledCameraZ(aspect) {
+  if (!isMobileOrTouch()) return BASE_CAMERA_Z;
+  const safeAspect = Math.max(0.2, Math.min(2, aspect || 1));
+  if (safeAspect >= 1) return BASE_CAMERA_Z;
+  const portraitAmount = 1 - safeAspect;
+  const t = Math.max(0, Math.min(1, portraitAmount / 0.5));
+  const scale = 1 + (MOBILE_PORTRAIT_MAX_Z_SCALE - 1) * t;
+  return BASE_CAMERA_Z * scale;
+}
+
 export function createScene(container) {
   scene = new THREE.Scene();
 
@@ -58,7 +70,7 @@ export function createScene(container) {
   let h = Math.max(1, container.clientHeight || window.innerHeight);
   const aspect = w / h;
   camera = new THREE.PerspectiveCamera(FOV_DEG, aspect, 0.1, 6000);
-  camera.position.set(0, 0, 50);
+  camera.position.set(0, 0, getAspectScaledCameraZ(aspect));
   camera.lookAt(0, 0, 0);
   updatePlayAreaFromCamera();
 
@@ -139,7 +151,9 @@ export function resize(container) {
     composer.setPixelRatio(renderer.getPixelRatio());
   }
   if (outlinePass) outlinePass.setSize(w, h);
-  camera.aspect = w / h;
+  const aspect = w / h;
+  camera.aspect = aspect;
+  camera.position.z = getAspectScaledCameraZ(aspect);
   camera.updateProjectionMatrix();
   updatePlayAreaFromCamera();
 }
