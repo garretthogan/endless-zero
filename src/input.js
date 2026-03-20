@@ -5,6 +5,8 @@ let canvasRect = { left: 0, top: 0, width: 1, height: 1 };
 let _boundPointerDown = null;
 let _boundPointerMove = null;
 let _boundPointerUp = null;
+let _boundTouchStart = null;
+let _boundTouchMove = null;
 
 let panelTouchActive = false;
 let touchStartClientX = 0;
@@ -105,6 +107,22 @@ function onPointerLeave() {
   document.body.style.cursor = '';
 }
 
+function onTouchStart(e) {
+  if (!e.touches || e.touches.length === 0) return;
+  const t = e.touches[0];
+  if (isInsideSwipeContainer(t.clientX, t.clientY)) {
+    e.preventDefault();
+  }
+}
+
+function onTouchMove(e) {
+  if (!e.touches || e.touches.length === 0) return;
+  const t = e.touches[0];
+  if (isInsideSwipeContainer(t.clientX, t.clientY)) {
+    e.preventDefault();
+  }
+}
+
 export function initInput(canvas) {
   if (!canvas) return;
   canvasRect = canvas.getBoundingClientRect();
@@ -114,9 +132,13 @@ export function initInput(canvas) {
   _boundPointerDown = (e) => onPointerDown(e, canvas);
   _boundPointerMove = (e) => onPointerMove(e, canvas);
   _boundPointerUp = onPointerUp;
+  _boundTouchStart = onTouchStart;
+  _boundTouchMove = onTouchMove;
   window.addEventListener('pointerdown', _boundPointerDown);
   window.addEventListener('pointermove', _boundPointerMove, { passive: false });
   window.addEventListener('pointerup', _boundPointerUp);
+  window.addEventListener('touchstart', _boundTouchStart, { passive: false });
+  window.addEventListener('touchmove', _boundTouchMove, { passive: false });
   canvas.addEventListener('pointerleave', onPointerLeave);
 }
 
@@ -180,6 +202,14 @@ export function removeInputListeners(canvas) {
   if (_boundPointerUp) {
     window.removeEventListener('pointerup', _boundPointerUp);
     _boundPointerUp = null;
+  }
+  if (_boundTouchStart) {
+    window.removeEventListener('touchstart', _boundTouchStart);
+    _boundTouchStart = null;
+  }
+  if (_boundTouchMove) {
+    window.removeEventListener('touchmove', _boundTouchMove);
+    _boundTouchMove = null;
   }
   if (canvas) canvas.removeEventListener('pointerleave', onPointerLeave);
 }

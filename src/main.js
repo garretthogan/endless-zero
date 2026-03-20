@@ -17,6 +17,9 @@ let gamePaused = false;
 let escapeKeyHandler = null;
 
 let mobileFireRequested = false;
+const MOBILE_AUTO_FIRE_MAX_BULLETS = 2;
+const MOBILE_AUTO_FIRE_MAX_Z_AHEAD = 240;
+const MOBILE_AUTO_FIRE_PATH_PADDING = 1.25;
 
 const baseUrl = import.meta.env.BASE_URL;
 
@@ -105,6 +108,41 @@ function playShipExplosionSound() {
   s.volume = sfxVolume;
   s.currentTime = 0;
   s.play().catch(() => {});
+}
+
+function shouldAutoFireOnMobile(state, spawnPosition) {
+  if (!state || !spawnPosition) return false;
+  if (state.shipExploding || state.gameOver) return false;
+  if (!Array.isArray(state.asteroids) || state.asteroids.length === 0) return false;
+  const spawnZ = typeof spawnPosition.z === 'number' ? spawnPosition.z : SHIP_Z_OFFSET;
+  for (const asteroid of state.asteroids) {
+    if (!asteroid) continue;
+    const dzAhead = spawnZ - asteroid.z;
+    if (dzAhead <= 0 || dzAhead > MOBILE_AUTO_FIRE_MAX_Z_AHEAD) continue;
+    const lateralDist = Math.hypot(asteroid.x - spawnPosition.x, asteroid.y - spawnPosition.y);
+    const laneRadius = (asteroid.radius ?? 0) + MOBILE_AUTO_FIRE_PATH_PADDING;
+    if (lateralDist <= laneRadius) return true;
+  }
+  return false;
+}
+
+function updateBulletDots(maxBullets, bulletCount) {
+  const dotsContainer = document.getElementById('bullet-dots');
+  if (!dotsContainer) return;
+  if (dotsContainer.children.length !== maxBullets) {
+    dotsContainer.textContent = '';
+    for (let i = 0; i < maxBullets; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'bullet-dot';
+      dotsContainer.appendChild(dot);
+    }
+  }
+  const available = Math.max(0, maxBullets - bulletCount);
+  for (let i = 0; i < dotsContainer.children.length; i++) {
+    const dot = dotsContainer.children[i];
+    dot.classList.toggle('available', i < available);
+    dot.classList.toggle('spent', i >= available);
+  }
 }
 
 const musicTracks = [
@@ -307,8 +345,9 @@ function gameLoop(time) {
     z: SHIP_Z_OFFSET,
   };
   const isTouch = document.body.classList.contains('touch-device');
+  const mobileAutoFire = isTouch && shouldAutoFireOnMobile(state, spawnPosition);
   const fire = isTouch
-    ? mobileFireRequested && state.bullets.length < 2
+    ? (mobileFireRequested || mobileAutoFire) && state.bullets.length < MOBILE_AUTO_FIRE_MAX_BULLETS
     : getFireHeld();
   if (isTouch) mobileFireRequested = false;
   simulationTick(dt, { x: targetX, y: targetY }, fire, playArea, spawnPosition, cameraZ, playLaserSound, playShipExplosionSound, playAsteroidExplosionSound, playHoopSound, playInvincibilitySound, playTwinFireSound);
@@ -329,13 +368,7 @@ function gameLoop(time) {
   syncFragments(newState.fragments);
 
   const maxBullets = 2;
-  const bulletFillBar = document.getElementById('bullet-fill-bar');
-  if (bulletFillBar) {
-    const bulletCount = newState.bullets.length;
-    const fill = Math.max(0, Math.min(1, (maxBullets - bulletCount) / maxBullets));
-    const circumference = 2 * Math.PI * 24;
-    bulletFillBar.style.strokeDashoffset = String((1 - fill) * circumference);
-  }
+  updateBulletDots(maxBullets, newState.bullets.length);
 
   const powerupTimerEl = document.getElementById('powerup-timer');
   if (powerupTimerEl) {
