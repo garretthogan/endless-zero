@@ -275,59 +275,43 @@ body.menu-visible .bullet-fill {
   height: 24px;
 }
 
-.mobile-swipe-hint {
-  display: none;
+.touch-joystick {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 33.33vh;
-  height: 33.33dvh;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  box-sizing: border-box;
-  background: rgba(0, 0, 0, 0.45);
-  align-items: center;
-  justify-content: center;
-  z-index: 15;
+  inset: 0;
+  z-index: 14;
   pointer-events: none;
 }
 
-.mobile-swipe-hint-corner {
+.touch-joystick-base {
   position: absolute;
-  width: 28px;
-  height: 28px;
-  border-color: var(--tui-fg);
-  border-style: solid;
-  border-width: 0;
-  opacity: 0.85;
+  width: 112px;
+  height: 112px;
+  margin-left: -56px;
+  margin-top: -56px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
-.mobile-swipe-hint-corner-top-left {
-  left: calc(12px + env(safe-area-inset-left, 0px));
-  top: calc(12px + env(safe-area-inset-top, 0px));
-  border-left-width: 3px;
-  border-top-width: 3px;
+.touch-joystick.active .touch-joystick-base {
+  opacity: 1;
+  transform: scale(1);
 }
 
-.mobile-swipe-hint-corner-top-right {
-  right: calc(12px + env(safe-area-inset-right, 0px));
-  top: calc(12px + env(safe-area-inset-top, 0px));
-  border-right-width: 3px;
-  border-top-width: 3px;
-}
-
-.mobile-swipe-hint-corner-bottom-left {
-  left: calc(12px + env(safe-area-inset-left, 0px));
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  border-left-width: 3px;
-  border-bottom-width: 3px;
-}
-
-.mobile-swipe-hint-corner-bottom-right {
-  right: calc(12px + env(safe-area-inset-right, 0px));
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  border-right-width: 3px;
-  border-bottom-width: 3px;
+.touch-joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  margin-left: -26px;
+  margin-top: -26px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 body.touch-device .fullscreen-btn {
@@ -338,14 +322,9 @@ body.touch-device .bullet-fill {
   left: auto;
   right: calc(16px + env(safe-area-inset-right, 0px));
   z-index: 20;
-  top: calc(66.67vh + 12px);
-  top: calc(66.67dvh + 12px);
-  bottom: auto;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  top: auto;
   cursor: pointer;
-}
-
-body.touch-device .mobile-swipe-hint {
-  display: flex;
 }
 
 body.touch-device,
