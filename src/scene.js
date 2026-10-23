@@ -137,8 +137,20 @@ export function getRenderer() {
   return renderer;
 }
 
-export function getPlayArea() {
-  return { left: -halfWidth, right: halfWidth, top: halfHeight, bottom: -halfHeight };
+export function getPlayArea(planeZ = 0) {
+  if (!camera) {
+    return { left: -halfWidth, right: halfWidth, top: halfHeight, bottom: -halfHeight };
+  }
+  const distanceToPlane = Math.max(camera.near, camera.position.z - planeZ);
+  const vFov = (camera.fov * Math.PI) / 180;
+  const planeHalfHeight = Math.tan(vFov / 2) * distanceToPlane;
+  const planeHalfWidth = planeHalfHeight * camera.aspect;
+  return {
+    left: camera.position.x - planeHalfWidth,
+    right: camera.position.x + planeHalfWidth,
+    top: camera.position.y + planeHalfHeight,
+    bottom: camera.position.y - planeHalfHeight,
+  };
 }
 
 export function resize(container) {

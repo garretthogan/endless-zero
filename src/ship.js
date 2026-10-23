@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getToonGradientMap } from './scene.js';
 
-const SHIP_GLB_PATH = import.meta.env.BASE_URL + 'space_fighter_the_protector_of_the_galaxy.glb';
+const SHIP_GLB_PATH = (import.meta.env?.BASE_URL ?? '/') + 'space_fighter_the_protector_of_the_galaxy.glb';
 const SHIP_TARGET_SIZE = 6;
+export const SHIP_BOUNDARY_RADIUS = SHIP_TARGET_SIZE / 2;
 export const SHIP_Z_OFFSET = 35;
-const SHIP_Y_OFFSET = -1.5;
+export const SHIP_Y_OFFSET = -1.5;
 export const SHIP_HIT_RADIUS = 1.5;
 /** Offset of collider from mesh center, in ship local space. (0,0,0) = centered. +Z = back. */
 const SHIP_COLLIDER_OFFSET = new THREE.Vector3(0, 0, 0);
@@ -191,14 +192,13 @@ export function getShipColliderCenter() {
 
 /** Collider center for a given logical ship position (state.ship.x, state.ship.y). Use this when checking collision after movement so the center matches the frame's position. */
 export function getShipColliderCenterForLogicalPosition(logicalX, logicalY) {
-  if (!ship) return null;
-  const s = ship.scale.x;
+  const s = ship?.scale.x ?? 1;
   const ox = -SHIP_COLLIDER_OFFSET.x * s;
   const oy = SHIP_COLLIDER_OFFSET.y * s;
   const oz = -SHIP_COLLIDER_OFFSET.z * s;
   return {
     x: logicalX + ox,
-    y: logicalY + oy,
+    y: logicalY + SHIP_Y_OFFSET + oy,
     z: SHIP_Z_OFFSET + oz,
   };
 }

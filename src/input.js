@@ -6,6 +6,7 @@ let _boundPointerDown = null;
 let _boundPointerMove = null;
 let _boundPointerUp = null;
 let _boundPointerCancel = null;
+let _boundMouseMove = null;
 
 let joystickTouchActive = false;
 let joystickPointerId = null;
@@ -142,7 +143,8 @@ export function initInput(canvas) {
 
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
-  window.addEventListener('mousemove', (e) => onMouseMove(e, canvas));
+  _boundMouseMove = (e) => onMouseMove(e, canvas);
+  window.addEventListener('mousemove', _boundMouseMove);
   _boundPointerDown = (e) => onPointerDown(e, canvas);
   _boundPointerMove = (e) => onPointerMove(e, canvas);
   _boundPointerUp = onPointerUp;
@@ -202,6 +204,10 @@ export function removeInputListeners(canvas) {
   document.body.style.cursor = '';
   window.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('keyup', onKeyUp);
+  if (_boundMouseMove) {
+    window.removeEventListener('mousemove', _boundMouseMove);
+    _boundMouseMove = null;
+  }
   if (_boundPointerDown) {
     window.removeEventListener('pointerdown', _boundPointerDown);
     _boundPointerDown = null;

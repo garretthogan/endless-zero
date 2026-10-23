@@ -8,12 +8,12 @@
     <!-- Open Graph / iMessage, Discord, Slack, etc. -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Endless Zero" />
-    <meta property="og:description" content="Dodge the asteroids. Survive the void." />
+    <meta property="og:description" content="Blast, thread, and skim danger to keep the chain alive." />
     <meta property="og:image" content="og-image.png" />
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Endless Zero" />
-    <meta name="twitter:description" content="Dodge the asteroids. Survive the void." />
+    <meta name="twitter:description" content="Blast, thread, and skim danger to keep the chain alive." />
     <meta name="twitter:image" content="og-image.png" />
   </head>
   <body class="tui">
@@ -24,30 +24,88 @@
     <div id="main-menu" class="main-menu-overlay" aria-label="Main menu" style="display: none;">
       <div class="main-menu-panel">
         <h1 class="main-menu-title">Endless Zero</h1>
-        <p class="main-menu-tagline">Dodge the asteroids. Survive the void.</p>
-        <button id="start-btn" type="button" class="main-menu-btn">Start</button>
+        <p class="main-menu-tagline">Survive the void. Master the chain.</p>
+        <div class="mission-brief">
+          <p class="mission-brief-title">Keep the signal alive</p>
+          <p class="mission-brief-copy">Blast asteroids, thread hoops, and skim danger to build your chain. Act before the meter drains to multiply your score.</p>
+          <p class="control-row desktop-control"><span class="control-label">Desktop</span><span>Move with the mouse · Hold click or Space to fire</span></p>
+          <p class="control-row touch-control"><span class="control-label">Touch</span><span>Drag to steer · Auto-fire engages on threats</span></p>
+        </div>
+        <button id="start-btn" type="button" class="main-menu-btn">Launch Run</button>
       </div>
     </div>
     <div id="app"></div>
-    <div class="hud-display">
+    <div class="hud-display" aria-label="Run status">
+      <div id="sector-display" class="score-display" aria-live="polite">Sector: 1</div>
       <div id="parsecs-display" class="score-display" aria-live="polite">Parsecs: 0</div>
       <div id="score" class="score-display" aria-live="polite">Score: 0</div>
+      <div id="hull-display" class="hull-display" aria-label="Hull 3 of 3" aria-live="polite">
+        <span class="hud-label">Hull</span>
+        <span class="hull-pips" aria-hidden="true">
+          <span class="hull-pip"></span>
+          <span class="hull-pip"></span>
+          <span class="hull-pip"></span>
+        </span>
+      </div>
     </div>
-    <div id="bullet-fill" class="bullet-fill" aria-label="Bullet capacity" title="Bullet capacity">
-      <div id="bullet-dots" class="bullet-dots" aria-hidden="true"></div>
+    <div id="chain-display" class="chain-display">
+      <div class="chain-header">
+        <span><span id="chain-mode" class="chain-mode">Chain</span> <span id="chain-count">0</span></span>
+        <span id="multiplier-display" class="multiplier-display">×1</span>
+      </div>
+      <div id="chain-meter" class="chain-meter" role="progressbar" aria-label="Chain time remaining" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0">
+        <div id="chain-meter-fill" class="chain-meter-fill"></div>
+      </div>
     </div>
+    <button id="bullet-fill" type="button" class="bullet-fill" aria-label="Fire; shot capacity" title="Fire">
+      <span class="bullet-fill-label desktop-bullet-label">Shots</span>
+      <span class="bullet-fill-label touch-bullet-label">Auto-fire</span>
+      <span id="bullet-dots" class="bullet-dots" aria-hidden="true"></span>
+    </button>
     <div id="powerup-timer" class="powerup-timer" aria-live="polite" style="display: none;"></div>
+    <div id="action-toast" class="action-toast" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="pause-menu" class="overlay" style="display: none;" aria-label="Paused">
       <div class="overlay-panel">
         <h1>Paused</h1>
         <button id="resume-btn" type="button" class="overlay-btn">Resume</button>
       </div>
     </div>
-    <div id="game-over" class="overlay" style="display: none;">
-      <div class="overlay-panel">
-        <h1>Game Over</h1>
-        <p>Asteroid impact.</p>
-        <button id="restart-btn" type="button" class="overlay-btn">Restart</button>
+    <div id="game-over" class="overlay" role="dialog" aria-modal="true" style="display: none;" aria-label="Run summary">
+      <div class="overlay-panel run-summary-panel">
+        <p class="run-summary-eyebrow">Run complete</p>
+        <h1>Signal Lost</h1>
+        <p id="run-summary-reason" class="run-summary-reason">Hull depleted.</p>
+        <dl class="run-summary-grid">
+          <div class="run-summary-stat run-summary-primary">
+            <dt>Score</dt>
+            <dd id="summary-score">0</dd>
+          </div>
+          <div class="run-summary-stat run-summary-primary">
+            <dt>Best score</dt>
+            <dd id="summary-best-score">0</dd>
+          </div>
+          <div class="run-summary-stat">
+            <dt>Parsecs</dt>
+            <dd id="summary-parsecs">0</dd>
+          </div>
+          <div class="run-summary-stat">
+            <dt>Best chain</dt>
+            <dd id="summary-best-chain">0</dd>
+          </div>
+          <div class="run-summary-stat">
+            <dt>Asteroids</dt>
+            <dd id="summary-asteroids">0</dd>
+          </div>
+          <div class="run-summary-stat">
+            <dt>Hoops</dt>
+            <dd id="summary-hoops">0</dd>
+          </div>
+          <div class="run-summary-stat">
+            <dt>Near misses</dt>
+            <dd id="summary-near-misses">0</dd>
+          </div>
+        </dl>
+        <button id="restart-btn" type="button" class="overlay-btn">Run Again</button>
       </div>
     </div>
     <div id="touch-joystick" class="touch-joystick" aria-hidden="true">

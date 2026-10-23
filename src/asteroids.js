@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getToonGradientMap } from './scene.js';
 
-const ASTEROIDS_GLB_PATH = import.meta.env.BASE_URL + 'asteroids.glb';
+const ASTEROIDS_GLB_PATH = (import.meta.env?.BASE_URL ?? '/') + 'asteroids.glb';
 const ASTEROID_TARGET_SIZE = 8;
 const DEBUG_SPHERE_RADIUS = 4;
 
@@ -67,8 +67,12 @@ function cloneForInstance(source) {
   if (!source) return null;
   const clone = source.clone();
   clone.traverse((child) => {
-    if (child.isMesh && child.geometry) {
-      child.geometry = child.geometry.clone();
+    if (!child.isMesh) return;
+    if (child.geometry) child.geometry = child.geometry.clone();
+    if (Array.isArray(child.material)) {
+      child.material = child.material.map((material) => material.clone());
+    } else if (child.material) {
+      child.material = child.material.clone();
     }
   });
   const box = new THREE.Box3().setFromObject(clone);

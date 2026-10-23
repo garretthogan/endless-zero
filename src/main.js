@@ -2,7 +2,16 @@ import './style.css';
 import { createScene, getScene, getCamera, getRenderer, getPlayArea, getComposer, getOutlinePass, resize as sceneResize, dispose as sceneDispose } from './scene.js';
 import { createShip, updateShip, disposeShip, getBulletSpawnOffset, getShipGroup, SHIP_Z_OFFSET, setShipColliderVisible, updateShipColliderPosition, setShieldVisible } from './ship.js';
 import { initInput, getTargetWorldPosition, getFireHeld, removeInputListeners } from './input.js';
-import { getState, tick as simulationTick, resetState, setAsteroidsReadyFn, getNextSpawnBatchSize } from './simulation.js';
+import {
+  ACTION_CHAIN_DURATION,
+  MAX_HULL,
+  getState,
+  tick as simulationTick,
+  resetState,
+  setAsteroidsReadyFn,
+  getNextSpawnBatchSize,
+  getMaxBullets,
+} from './simulation.js';
 import { createStarfield, updateStarfield, disposeStarfield, setStarfieldResolution } from './starfield.js';
 import { createBullets, syncBullets, disposeBullets } from './bullets.js';
 import { createAsteroids, syncAsteroids, syncFragments, disposeAsteroids, isAsteroidsReady, setAsteroidCollidersVisible } from './asteroids.js';
@@ -16,10 +25,17 @@ let gameStarted = false;
 let gamePaused = false;
 let escapeKeyHandler = null;
 
-let mobileFireRequested = false;
-const MOBILE_AUTO_FIRE_MAX_BULLETS = 2;
+let hudFireRequested = false;
 const MOBILE_AUTO_FIRE_MAX_Z_AHEAD = 240;
 const MOBILE_AUTO_FIRE_PATH_PADDING = 1.25;
+const ACTION_TOAST_DURATION_MS = 1400;
+const BEST_SCORE_STORAGE_KEY = 'endless-zero-best-score';
+
+const ui = {};
+let bestScore = 0;
+let runSummaryUpdated = false;
+let lastActionId = null;
+let actionToastTimer = null;
 
 const baseUrl = import.meta.env.BASE_URL;
 
@@ -127,7 +143,7 @@ function shouldAutoFireOnMobile(state, spawnPosition) {
 }
 
 function updateBulletDots(maxBullets, bulletCount) {
-  const dotsContainer = document.getElementById('bullet-dots');
+  const dotsContainer = ui.bulletDots ?? document.getElementById('bullet-dots');
   if (!dotsContainer) return;
   if (dotsContainer.children.length !== maxBullets) {
     dotsContainer.textContent = '';
@@ -138,11 +154,180 @@ function updateBulletDots(maxBullets, bulletCount) {
     }
   }
   const available = Math.max(0, maxBullets - bulletCount);
+  const isTouch = document.body.classList.contains('touch-device');
+  setAttributeValue(
+    ui.bulletFill,
+    'aria-label',
+    isTouch
+      ? `Fire now; auto-fire active; ${available} of ${maxBullets} shots ready`
+      : `Fire; ${available} of ${maxBullets} shots ready`
+  );
   for (let i = 0; i < dotsContainer.children.length; i++) {
     const dot = dotsContainer.children[i];
     dot.classList.toggle('available', i < available);
     dot.classList.toggle('spent', i >= available);
   }
+}
+
+function setText(element, value) {
+  if (element && element.textContent !== value) element.textContent = value;
+}
+
+function setAttributeValue(element, name, value) {
+  if (element && element.getAttribute(name) !== value) element.setAttribute(name, value);
+}
+
+function readBestScore() {
+  try {
+    const value = Number.parseInt(window.localStorage.getItem(BEST_SCORE_STORAGE_KEY) ?? '', 10);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveBestScore(value) {
+  try {
+    window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, String(value));
+  } catch {
+    // Storage may be unavailable in private or restricted browser contexts.
+  }
+}
+
+function cacheUiElements() {
+  ui.bulletFill = document.getElementById('bullet-fill');
+  ui.bulletDots = document.getElementById('bullet-dots');
+  ui.score = document.getElementById('score');
+  ui.parsecs = document.getElementById('parsecs-display');
+  ui.sector = document.getElementById('sector-display');
+  ui.hull = document.getElementById('hull-display');
+  ui.hullPips = Array.from(document.querySelectorAll('.hull-pip'));
+  ui.chain = document.getElementById('chain-display');
+  ui.chainMode = document.getElementById('chain-mode');
+  ui.chainCount = document.getElementById('chain-count');
+  ui.multiplier = document.getElementById('multiplier-display');
+  ui.chainMeter = document.getElementById('chain-meter');
+  ui.chainMeterFill = document.getElementById('chain-meter-fill');
+  ui.powerupTimer = document.getElementById('powerup-timer');
+  ui.actionToast = document.getElementById('action-toast');
+  ui.gameOver = document.getElementById('game-over');
+  ui.restart = document.getElementById('restart-btn');
+  ui.summaryReason = document.getElementById('run-summary-reason');
+  ui.summaryScore = document.getElementById('summary-score');
+  ui.summaryBestScore = document.getElementById('summary-best-score');
+  ui.summaryParsecs = document.getElementById('summary-parsecs');
+  ui.summaryBestChain = document.getElementById('summary-best-chain');
+  ui.summaryAsteroids = document.getElementById('summary-asteroids');
+  ui.summaryHoops = document.getElementById('summary-hoops');
+  ui.summaryNearMisses = document.getElementById('summary-near-misses');
+  setAttributeValue(ui.chainMeter, 'aria-valuemax', String(ACTION_CHAIN_DURATION));
+  bestScore = readBestScore();
+}
+
+function formatMultiplier(multiplier) {
+  return Number.isInteger(multiplier) ? String(multiplier) : multiplier.toFixed(1);
+}
+
+function showActionToast(action) {
+  if (!action || action.id == null || action.id === lastActionId) return;
+  lastActionId = action.id;
+  if (!ui.actionToast) return;
+
+  const label = action.label || 'Chain extended';
+  const points = Math.max(0, Number(action.points) || 0);
+  const multiplier = Math.max(1, Number(action.multiplier) || 1);
+  const pointsText = points > 0 ? ` +${Math.floor(points)}` : '';
+  const multiplierText = points > 0 && multiplier > 1 ? ` · ×${formatMultiplier(multiplier)}` : '';
+  setText(ui.actionToast, `${label}${pointsText}${multiplierText}`);
+  ui.actionToast.classList.add('visible');
+
+  if (actionToastTimer != null) window.clearTimeout(actionToastTimer);
+  actionToastTimer = window.setTimeout(() => {
+    ui.actionToast?.classList.remove('visible');
+    actionToastTimer = null;
+  }, ACTION_TOAST_DURATION_MS);
+}
+
+function updateHud(state) {
+  const hull = Math.max(0, Math.min(MAX_HULL, Math.floor(Number(state.hull) || 0)));
+  const sector = Math.max(1, Math.floor(Number(state.sector) || 1));
+  const comboCount = Math.max(0, Math.floor(Number(state.comboCount) || 0));
+  const multiplier = Math.max(1, Number(state.multiplier) || 1);
+  const comboTimer = Math.max(0, Math.min(ACTION_CHAIN_DURATION, Number(state.comboTimer) || 0));
+  const overdrive = Boolean(state.overdrive);
+
+  setText(ui.score, `Score: ${Math.floor(Number(state.score) || 0)}`);
+  setText(ui.parsecs, `Parsecs: ${Math.floor(Number(state.totalParsecs) || 0)}`);
+  setText(ui.sector, `Sector: ${sector}`);
+  if (ui.hull) {
+    setAttributeValue(ui.hull, 'aria-label', `Hull ${hull} of ${MAX_HULL}`);
+    ui.hull.classList.toggle('critical', hull === 1);
+  }
+  ui.hullPips?.forEach((pip, index) => pip.classList.toggle('empty', index >= hull));
+
+  setText(ui.chainMode, overdrive ? 'Overdrive' : 'Chain');
+  setText(ui.chainCount, String(comboCount));
+  setText(ui.multiplier, `×${formatMultiplier(multiplier)}`);
+  ui.chain?.classList.toggle('active', comboCount > 0);
+  ui.chain?.classList.toggle('overdrive', overdrive);
+  setAttributeValue(ui.chain, 'aria-label', `${overdrive ? 'Overdrive' : 'Chain'} ${comboCount}, multiplier ${formatMultiplier(multiplier)}`);
+  setAttributeValue(ui.chainMeter, 'aria-valuenow', comboTimer.toFixed(1));
+  if (ui.chainMeterFill) {
+    const width = `${(comboTimer / ACTION_CHAIN_DURATION) * 100}%`;
+    if (ui.chainMeterFill.style.width !== width) ui.chainMeterFill.style.width = width;
+  }
+
+  if (ui.powerupTimer) {
+    const active = [];
+    if (state.shieldTimer > 0) active.push(`Shield: ${state.shieldTimer.toFixed(1)}s`);
+    if (state.homingTimer > 0) active.push(`Homing: ${state.homingTimer.toFixed(1)}s`);
+    if (active.length > 0) {
+      setText(ui.powerupTimer, active.join('  ·  '));
+      if (ui.powerupTimer.style.display !== 'block') ui.powerupTimer.style.display = 'block';
+    } else {
+      setText(ui.powerupTimer, '');
+      if (ui.powerupTimer.style.display !== 'none') ui.powerupTimer.style.display = 'none';
+    }
+  }
+
+  showActionToast(state.lastAction);
+}
+
+function resetRunPresentation() {
+  runSummaryUpdated = false;
+  lastActionId = null;
+  if (actionToastTimer != null) {
+    window.clearTimeout(actionToastTimer);
+    actionToastTimer = null;
+  }
+  ui.actionToast?.classList.remove('visible');
+  setText(ui.actionToast, '');
+}
+
+function updateRunSummary(state) {
+  if (runSummaryUpdated) return;
+  runSummaryUpdated = true;
+  if (actionToastTimer != null) {
+    window.clearTimeout(actionToastTimer);
+    actionToastTimer = null;
+  }
+  ui.actionToast?.classList.remove('visible');
+
+  const score = Math.max(0, Math.floor(Number(state.score) || 0));
+  if (score > bestScore) {
+    bestScore = score;
+    saveBestScore(bestScore);
+  }
+
+  const sector = Math.max(1, Math.floor(Number(state.sector) || 1));
+  setText(ui.summaryReason, `Hull depleted in Sector ${sector}.`);
+  setText(ui.summaryScore, String(score));
+  setText(ui.summaryBestScore, String(bestScore));
+  setText(ui.summaryParsecs, String(Math.floor(Number(state.totalParsecs) || 0)));
+  setText(ui.summaryBestChain, String(Math.max(0, Math.floor(Number(state.bestCombo) || 0))));
+  setText(ui.summaryAsteroids, String(Math.max(0, Math.floor(Number(state.asteroidsDestroyed) || 0))));
+  setText(ui.summaryHoops, String(Math.max(0, Math.floor(Number(state.hoopsPassed) || 0))));
+  setText(ui.summaryNearMisses, String(Math.max(0, Math.floor(Number(state.nearMisses) || 0))));
 }
 
 const musicTracks = [
@@ -265,8 +450,17 @@ function playAsteroidExplosionSound(x, y, z) {
 }
 
 function showGameOver(show) {
-  const el = document.getElementById('game-over');
-  if (el) el.style.display = show ? 'flex' : 'none';
+  const el = ui.gameOver ?? document.getElementById('game-over');
+  const display = show ? 'flex' : 'none';
+  if (!el || el.style.display === display) return;
+  el.style.display = display;
+  if (show) {
+    window.requestAnimationFrame(() => {
+      (ui.restart ?? document.getElementById('restart-btn'))?.focus({ preventScroll: true });
+    });
+  } else if (el.contains(document.activeElement)) {
+    ui.bulletFill?.focus({ preventScroll: true });
+  }
 }
 
 function showPauseMenu(show) {
@@ -318,6 +512,8 @@ function gameLoop(time) {
   }
 
   if (state.gameOver) {
+    updateHud(state);
+    updateRunSummary(state);
     showGameOver(true);
     if (scene && camera && outlinePass) {
       const meshes = [];
@@ -329,7 +525,7 @@ function gameLoop(time) {
     return;
   }
 
-  const playArea = getPlayArea();
+  const playArea = getPlayArea(SHIP_Z_OFFSET);
   const cameraZ = camera ? camera.position.z : 50;
   const targetWorld = getTargetWorldPosition(playArea, state.ship.x, state.ship.y);
   let targetX = state.ship.x;
@@ -347,14 +543,18 @@ function gameLoop(time) {
   const isTouch = document.body.classList.contains('touch-device');
   const mobileAutoFire = isTouch && shouldAutoFireOnMobile(state, spawnPosition);
   const fire = isTouch
-    ? (mobileFireRequested || mobileAutoFire) && state.bullets.length < MOBILE_AUTO_FIRE_MAX_BULLETS
-    : getFireHeld();
-  if (isTouch) mobileFireRequested = false;
+    ? (hudFireRequested || mobileAutoFire) && state.bullets.length < getMaxBullets()
+    : hudFireRequested || getFireHeld();
+  hudFireRequested = false;
   simulationTick(dt, { x: targetX, y: targetY }, fire, playArea, spawnPosition, cameraZ, playLaserSound, playShipExplosionSound, playAsteroidExplosionSound, playHoopSound, playInvincibilitySound, playTwinFireSound);
   const newState = getState();
 
   const shipGroup = getShipGroup();
-  if (shipGroup) shipGroup.visible = !newState.gameOver && !newState.shipExploding;
+  if (shipGroup) {
+    const invulnerabilityTimer = Math.max(0, Number(newState.invulnerabilityTimer) || 0);
+    const blinkVisible = invulnerabilityTimer <= 0 || Math.floor(invulnerabilityTimer * 12) % 2 === 0;
+    shipGroup.visible = !newState.gameOver && !newState.shipExploding && blinkVisible;
+  }
 
   updateShip(newState.ship);
   updateShipColliderPosition();
@@ -367,27 +567,9 @@ function gameLoop(time) {
   syncFireworkParticles(newState.fireworkParticles);
   syncFragments(newState.fragments);
 
-  const maxBullets = 2;
+  const maxBullets = getMaxBullets();
   updateBulletDots(maxBullets, newState.bullets.length);
-
-  const powerupTimerEl = document.getElementById('powerup-timer');
-  if (powerupTimerEl) {
-    const active = [];
-    if (newState.shieldTimer > 0) active.push(`Shield: ${newState.shieldTimer.toFixed(1)}s`);
-    if (newState.homingTimer > 0) active.push(`Homing: ${newState.homingTimer.toFixed(1)}s`);
-    if (active.length > 0) {
-      powerupTimerEl.textContent = active.join('  ·  ');
-      powerupTimerEl.style.display = 'block';
-    } else {
-      powerupTimerEl.textContent = '';
-      powerupTimerEl.style.display = 'none';
-    }
-  }
-
-  const scoreEl = document.getElementById('score');
-  if (scoreEl) scoreEl.textContent = `Score: ${newState.score}`;
-  const parsecsEl = document.getElementById('parsecs-display');
-  if (parsecsEl) parsecsEl.textContent = `Parsecs: ${Math.floor(newState.totalParsecs)}`;
+  updateHud(newState);
 
   const spawnIntervalEl = document.getElementById('dev-spawn-interval-value');
   if (spawnIntervalEl) spawnIntervalEl.textContent = newState.currentSpawnInterval.toFixed(2);
@@ -437,28 +619,34 @@ function hideMainMenu() {
 
 function startGame(renderer) {
   gameStarted = true;
+  resetRunPresentation();
+  updateHud(getState());
   onResize();
   requestAnimationFrame(() => onResize());
   unlockSfxForMobile();
+  whenAudioReadyOrTimeout().catch(() => {});
+  loadAsteroidExplosionBuffers().catch(() => {});
   initInput(renderer.domElement);
   hideMainMenu();
 
   const bulletFillEl = document.getElementById('bullet-fill');
-  if (bulletFillEl && document.body.classList.contains('touch-device')) {
-    bulletFillEl.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch') return;
+  if (bulletFillEl) {
+    bulletFillEl.addEventListener('click', (e) => {
       if (getState().gameOver || gamePaused) return;
       e.preventDefault();
       e.stopPropagation();
-      mobileFireRequested = true;
-    }, { passive: false });
+      hudFireRequested = true;
+    });
   }
 
   const restartBtn = document.getElementById('restart-btn');
   if (restartBtn) {
     restartBtn.addEventListener('click', () => {
       resetState();
-      mobileFireRequested = false;
+      resetRunPresentation();
+      updateHud(getState());
+      updateBulletDots(getMaxBullets(), 0);
+      hudFireRequested = false;
       showGameOver(false);
       document.body.style.cursor = 'none';
     });
@@ -620,10 +808,13 @@ function init() {
   const container = document.getElementById('app');
   if (!container) return;
 
+  cacheUiElements();
   initFullscreenButton();
 
   if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     document.body.classList.add('touch-device');
+    ui.bulletFill?.setAttribute('aria-label', 'Fire now; auto-fire active');
+    ui.bulletFill?.setAttribute('title', 'Auto-fire; tap to fire');
   }
 
   const { scene, camera, renderer } = createScene(container);
@@ -639,8 +830,6 @@ function init() {
   const loadPromises = Promise.all([
     shipLoadPromise,
     asteroidsLoadPromise,
-    whenAudioReadyOrTimeout(),
-    loadAsteroidExplosionBuffers(),
   ]);
 
   Promise.race([loadPromises, delay(LOAD_SAFETY_TIMEOUT_MS)])
@@ -677,6 +866,10 @@ function init() {
 }
 
 function dispose() {
+  if (actionToastTimer != null) {
+    window.clearTimeout(actionToastTimer);
+    actionToastTimer = null;
+  }
   if (escapeKeyHandler) {
     window.removeEventListener('keydown', escapeKeyHandler);
     escapeKeyHandler = null;
